@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMO LIST</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(55, 65, 81, 0.5); /* gray-700/50 */
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(107, 114, 128, 0.7); /* gray-500/70 */
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.8); /* gray-400/80 */
+        }
+
+        /* Basic styles for drag feedback */
+        .dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--accent-color);
+        }
+        .drag-over {
+            border: 2px dashed #9ca3af; /* gray-400 */
+            background-color: rgba(75, 85, 99, 0.1); /* gray-500/10 */
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6); /* Dim background */
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex; /* Show when active */
+        }
+        .modal-content {
+            background-color: #1f2937; /* gray-800 */
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #4b5563; /* gray-600 */
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            color: #d1d5db; /* gray-300 */
+        }
+
+        /* Calendar Day Task Indicator */
+        .task-indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            display: inline-block;
+            margin-left: 4px;
+        }
+
+        /* Settings Color Swatch */
+        .color-swatch {
+            width: 2rem; /* w-8 */
+            height: 2rem; /* h-8 */
+            border-radius: 9999px; /* rounded-full */
+            border-width: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .color-swatch.selected {
+            border-color: white;
+            box-shadow: 0 0 0 2px var(--accent-color); /* Ring effect */
+        }
+
+        /* Settings Background Preview */
+        .bg-preview {
+            height: 4rem; /* h-16 */
+            border-radius: 0.25rem; /* rounded */
+            border-width: 2px;
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem; /* text-xs */
+            color: #9ca3af; /* gray-400 */
+        }
+         .bg-preview.selected {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px var(--accent-color); /* Ring effect */
+        }
+
+        /* Ensure body takes full height for background */
+        html, body {
+            min-height: 100vh;
+            background-color: #111827; /* gray-900 fallback */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            transition: background-image 0.3s ease;
+        }
+
+        /* Style buttons with accent color */
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        .btn-outline {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+        .btn-outline:hover {
+            background-color: rgba(var(--accent-rgb), 0.1);
+        }
+        .text-accent {
+            color: var(--accent-color);
+        }
+        .border-accent {
+             border-color: var(--accent-color);
+        }
+        .ring-accent {
+            --tw-ring-color: var(--accent-color);
+        }
+        .bg-accent-20 {
+             background-color: rgba(var(--accent-rgb), 0.2);
+        }
+        .text-accent-dark {
+             color: var(--accent-color); /* Adjust if needed for contrast */
+        }
+        .border-accent-30 {
+             border-color: rgba(var(--accent-rgb), 0.3);
+        }
+
+        /* Priority badge colors */
+        .badge-high { background-color: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.3); } /* red */
+        .badge-medium { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); } /* amber */
+        .badge-low { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); } /* green */
+
+        /* Overdue text */
+        .text-overdue { color: #f87171; } /* red-400 */
+        .icon-overdue { color: #ef4444; } /* red-500 */
+
+        /* Edit mode indicator */
+        .edit-mode-active {
+            border: 2px dashed var(--accent-color) !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans">
+
+    <div class="container mx-auto p-4 relative z-10">
+        <header class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <h1 class="text-3xl font-bold flex items-center gap-2 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                the pmo list😡 
+            </h1>
+            <div class="flex gap-2 items-center flex-wrap">
+                <button id="toggle-view-btn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-3 py-1.5 rounded-md text-sm inline-flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span id="toggle-view-text">Calendar</span>
+                </button>
+                <button id="toggle-edit-btn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-3 py-1.5 rounded-md text-sm inline-flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    <span id="toggle-edit-text">Edit Mode</span>
+                </button>
+                <button id="add-task-btn" class="btn-primary px-3 py-1.5 rounded-md text-sm inline-flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add Task
+                </button>
+                <button id="settings-btn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 p-1.5 rounded-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <main id="main-content">
+            <div id="kanban-board" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div id="todo-column" class="kanban-column bg-gray-800/60 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-gray-700/30 min-h-[200px]" data-status="todo">
+                    <h2 class="text-lg font-semibold flex items-center justify-between mb-4 text-white border-b border-gray-700 pb-2">
+                        u need to do ts🥀
+                        <span id="todo-count" class="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full text-xs font-medium">0</span>
+                    </h2>
+                    <div id="todo-tasks" class="space-y-4 task-list"></div>
+                </div>
+                <div id="inprogress-column" class="kanban-column bg-gray-800/60 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-gray-700/30 min-h-[200px]" data-status="inprogress">
+                    <h2 class="text-lg font-semibold flex items-center justify-between mb-4 text-white border-b border-gray-700 pb-2">
+                        doing ts💔
+                        <span id="inprogress-count" class="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full text-xs font-medium">0</span>
+                    </h2>
+                    <div id="inprogress-tasks" class="space-y-4 task-list"></div>
+                </div>
+                <div id="done-column" class="kanban-column bg-gray-800/60 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-gray-700/30 min-h-[200px]" data-status="done">
+                    <h2 class="text-lg font-semibold flex items-center justify-between mb-4 text-white border-b border-gray-700 pb-2">
+                        ts is done🎉
+                        <span id="done-count" class="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded-full text-xs font-medium">0</span>
+                    </h2>
+                    <div id="done-tasks" class="space-y-4 task-list"></div>
+                </div>
+            </div>
+
+            <div id="calendar-view" class="hidden bg-gray-800/80 backdrop-blur-sm rounded-lg p-4 shadow-md border border-gray-700/50 mt-6">
+                <div class="flex justify-between items-center mb-4">
+                    <button id="prev-month-btn" class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <h3 id="calendar-month-year" class="text-lg font-semibold text-white"></h3>
+                    <button id="next-month-btn" class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
+                <div class="grid grid-cols-7 gap-px text-center text-xs font-medium text-gray-400 mb-1">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-px">
+                    </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title" class="text-lg font-semibold mb-4 text-white">Add New Task</h2>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <div class="mb-4">
+                    <label for="task-title" class="block text-sm font-medium text-gray-200 mb-1">Title</label>
+                    <input type="text" id="task-title" name="title" required class="w-full px-3 py-1.5 bg-gray-700/50 text-white border border-gray-600 rounded-md text-sm focus:ring-accent focus:border-accent">
+                </div>
+                <div class="mb-4">
+                    <label for="task-description" class="block text-sm font-medium text-gray-200 mb-1">Description</label>
+                    <textarea id="task-description" name="description" rows="3" class="w-full px-3 py-1.5 bg-gray-700/50 text-white border border-gray-600 rounded-md text-sm focus:ring-accent focus:border-accent"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="task-priority" class="block text-sm font-medium text-gray-200 mb-1">Priority</label>
+                    <select id="task-priority" name="priority" class="w-full px-3 py-1.5 bg-gray-700/50 text-white border border-gray-600 rounded-md text-sm focus:ring-accent focus:border-accent">
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="task-deadline" class="block text-sm font-medium text-gray-200 mb-1">Deadline</label>
+                    <input type="date" id="task-deadline" name="deadline" class="w-full px-3 py-1.5 bg-gray-700/50 text-white border border-gray-600 rounded-md text-sm focus:ring-accent focus:border-accent">
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" id="cancel-task-btn" class="bg-gray-600 hover:bg-gray-500 text-gray-200 px-4 py-1.5 rounded-md text-sm">Cancel</button>
+                    <button type="submit" id="save-task-btn" class="btn-primary px-4 py-1.5 rounded-md text-sm">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+     <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-lg font-semibold mb-4 text-white">Customize Appearance</h2>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-200 mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        Background Image
+                    </label>
+                    <div id="bg-options-container" class="grid grid-cols-3 gap-2 mb-2">
+                        </div>
+                    <input type="url" id="bg-url-input" placeholder="Or enter image URL" class="w-full px-3 py-1.5 bg-gray-700/50 text-white border border-gray-600 rounded-md text-sm focus:ring-accent focus:border-accent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-200 mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z"></path></svg>
+                        Accent Color
+                    </label>
+                    <div id="color-options-container" class="flex flex-wrap gap-2 mb-2">
+                        </div>
+                    <input type="color" id="color-picker-input" class="w-full h-10 p-1 bg-gray-700/50 border border-gray-600 rounded cursor-pointer">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700/50">
+                <button type="button" id="cancel-settings-btn" class="bg-gray-600 hover:bg-gray-500 text-gray-200 px-4 py-1.5 rounded-md text-sm">Cancel</button>
+                <button type="button" id="apply-settings-btn" class="btn-primary px-4 py-1.5 rounded-md text-sm">Apply Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <script>
+        // --- Global State & Constants ---
+        let tasks = [];
+        let settings = {
+            backgroundImage: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2073&q=80', // Default beach
+            accentColor: '#3b82f6', // Default blue
+        };
+        let currentCalendarDate = new Date();
+        let isEditMode = false;
+        let currentView = 'kanban'; // 'kanban' or 'calendar'
+        let draggedTaskId = null;
+        let confettiAnimationId = null;
+        const PREDEFINED_BACKGROUNDS = [
+            { name: 'Beach', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2073&q=80' },
+            { name: 'Mountains', url: 'https://images.unsplash.com/photo-1542224566-6e85f2ba572a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80' },
+            { name: 'Abstract', url: 'https://images.unsplash.com/photo-1553356084-58ef4a67b2a7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80' },
+            { name: 'Forest', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' },
+            { name: 'Solid Dark', url: '' }, // Option for no background image
+        ];
+        const PREDEFINED_COLORS = ['#3b82f6', '#ef4444', '#f97316', '#eab308', '#22c55e', '#8b5cf6', '#ec4899'];
+
+        // --- DOM Elements ---
+        const taskModal = document.getElementById('task-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        const taskForm = document.getElementById('task-form');
+        const modalTitle = document.getElementById('modal-title');
+        const taskIdInput = document.getElementById('task-id');
+        const taskTitleInput = document.getElementById('task-title');
+        const taskDescriptionInput = document.getElementById('task-description');
+        const taskPriorityInput = document.getElementById('task-priority');
+        const taskDeadlineInput = document.getElementById('task-deadline');
+        const kanbanBoard = document.getElementById('kanban-board');
+        const calendarView = document.getElementById('calendar-view');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const calendarMonthYear = document.getElementById('calendar-month-year');
+        const mainContent = document.getElementById('main-content');
+        const toggleViewBtn = document.getElementById('toggle-view-btn');
+        const toggleViewText = document.getElementById('toggle-view-text');
+        const toggleEditBtn = document.getElementById('toggle-edit-btn');
+        const toggleEditText = document.getElementById('toggle-edit-text');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const ctx = confettiCanvas.getContext('2d');
+        const bgOptionsContainer = document.getElementById('bg-options-container');
+        const colorOptionsContainer = document.getElementById('color-options-container');
+        const bgUrlInput = document.getElementById('bg-url-input');
+        const colorPickerInput = document.getElementById('color-picker-input');
+
+        // --- Utility Functions ---
+        const generateId = () => `task-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        // *** MODIFIED formatDate ***
+        const formatDate = (dateString) => {
+            if (!dateString) return 'No deadline';
+            try {
+                // Parse deadline string as UTC date
+                const dateParts = dateString.split('-');
+                // Month is 0-indexed in Date.UTC
+                const utcDate = new Date(Date.UTC(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])));
+
+                // Display using browser's local settings (e.g., Malaysian format/timezone)
+                return utcDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            } catch (e) { return 'Invalid date'; }
+        };
+
+        // *** MODIFIED isOverdue ***
+        const isOverdue = (dateString, status) => {
+            if (!dateString || status === 'done') return false;
+            try {
+                // Get start of today in UTC
+                const todayUtc = new Date();
+                todayUtc.setUTCHours(0, 0, 0, 0);
+
+                // Parse deadline string as UTC date
+                const deadlineParts = dateString.split('-');
+                // Month is 0-indexed in Date.UTC
+                const deadlineUtc = new Date(Date.UTC(parseInt(deadlineParts[0]), parseInt(deadlineParts[1]) - 1, parseInt(deadlineParts[2])));
+
+                return deadlineUtc.getTime() < todayUtc.getTime(); // Compare timestamps
+            } catch (e) { return false; }
+        };
+
+        // Helper to convert hex to RGB array for rgba usage
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : null;
+        };
+
+        // --- Local Storage ---
+        const saveTasks = () => localStorage.setItem('kanbanTasks', JSON.stringify(tasks));
+        const loadTasks = () => {
+            const saved = localStorage.getItem('kanbanTasks');
+            tasks = saved ? JSON.parse(saved) : [
+                 // Add some default tasks if none are saved
+                { id: generateId(), title: 'Welcome Task!', description: 'Drag me to another column.', status: 'todo', priority: 'medium', deadline: '' },
+                { id: generateId(), title: 'Explore Calendar', description: 'Click the Calendar button.', status: 'todo', priority: 'low', deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }, // 3 days from now
+                { id: generateId(), title: 'Check Settings', description: 'Customize the look!', status: 'inprogress', priority: 'medium', deadline: '' },
+            ];
+        };
+        const saveSettings = () => localStorage.setItem('kanbanSettings', JSON.stringify(settings));
+        const loadSettings = () => {
+            const saved = localStorage.getItem('kanbanSettings');
+            if (saved) {
+                settings = JSON.parse(saved);
+            }
+            applySettings(); // Apply loaded or default settings
+        };
+
+        // --- Settings & Customization ---
+        const applySettings = () => {
+            document.documentElement.style.setProperty('--accent-color', settings.accentColor);
+            const rgb = hexToRgb(settings.accentColor);
+            if (rgb) {
+                document.documentElement.style.setProperty('--accent-rgb', `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`);
+            }
+
+            const bgStyle = settings.backgroundImage ? `url('${settings.backgroundImage}')` : 'none';
+            document.body.style.backgroundImage = bgStyle;
+            document.body.style.backgroundColor = settings.backgroundImage ? 'transparent' : '#111827'; // gray-900
+
+            // Update settings modal inputs to reflect current settings
+            bgUrlInput.value = settings.backgroundImage;
+            colorPickerInput.value = settings.accentColor;
+            updateSettingsUISelection();
+        };
+
+        const updateSettingsUISelection = () => {
+            // Update background previews
+            document.querySelectorAll('.bg-preview').forEach(el => {
+                el.classList.toggle('selected', el.dataset.url === settings.backgroundImage);
+            });
+            // Update color swatches
+            document.querySelectorAll('.color-swatch').forEach(el => {
+                el.classList.toggle('selected', el.dataset.color === settings.accentColor);
+            });
+        };
+
+        const renderSettingsOptions = () => {
+            // Backgrounds
+            bgOptionsContainer.innerHTML = '';
+            PREDEFINED_BACKGROUNDS.forEach(bg => {
+                const btn = document.createElement('button');
+                btn.className = `bg-preview border-gray-600 hover:border-gray-500`;
+                btn.style.backgroundImage = bg.url ? `url(${bg.url})` : 'none';
+                if (!bg.url) btn.style.backgroundColor = '#374151'; // gray-700
+                btn.textContent = !bg.url ? bg.name : '';
+                btn.title = bg.name;
+                btn.dataset.url = bg.url;
+                btn.onclick = () => {
+                    settings.backgroundImage = bg.url;
+                    bgUrlInput.value = bg.url;
+                    applySettings(); // Preview change immediately
+                };
+                bgOptionsContainer.appendChild(btn);
+            });
+            // Colors
+            colorOptionsContainer.innerHTML = '';
+            PREDEFINED_COLORS.forEach(color => {
+                const swatch = document.createElement('button');
+                swatch.className = `color-swatch border-gray-600 hover:border-gray-400`;
+                swatch.style.backgroundColor = color;
+                swatch.dataset.color = color;
+                swatch.onclick = () => {
+                    settings.accentColor = color;
+                    colorPickerInput.value = color;
+                    applySettings(); // Preview change immediately
+                };
+                colorOptionsContainer.appendChild(swatch);
+            });
+
+            updateSettingsUISelection(); // Set initial selection state
+        };
+
+        // --- Task Rendering ---
+        const createTaskElement = (task) => {
+            const div = document.createElement('div');
+            div.id = task.id;
+            div.className = `task-card bg-gray-800/80 backdrop-blur-sm rounded-lg p-3 shadow-md border border-gray-700/50 transition-all duration-300 ${isEditMode ? 'cursor-grab' : 'cursor-default'}`;
+            div.draggable = isEditMode;
+
+            const overdue = isOverdue(task.deadline, task.status);
+            const priorityClass = `badge-${task.priority}`;
+
+            div.innerHTML = `
+                <div class="flex justify-between items-start gap-2 mb-1.5">
+                    <h3 class="text-sm font-semibold text-white flex-1 break-words">${task.title}</h3>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium border ${priorityClass} flex-shrink-0">${task.priority}</span>
+                </div>
+                <p class="text-xs text-gray-300 mb-2.5 break-words">${task.description || 'No description'}</p>
+                <div class="flex justify-between items-center text-xs text-gray-400">
+                     <div class="flex items-center gap-1 ${overdue ? 'text-overdue font-medium' : ''}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>${formatDate(task.deadline)}</span>
+                        ${overdue ? '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-1 icon-overdue"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' : ''}
+                     </div>
+                    ${isEditMode ? `
+                    <div class="flex items-center gap-1">
+                        <button class="edit-task-btn text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 p-1 rounded" data-id="${task.id}" title="Edit Task">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                        <button class="delete-task-btn text-red-400 hover:bg-red-500/20 hover:text-red-300 p-1 rounded" data-id="${task.id}" title="Delete Task">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Add drag listeners if in edit mode
+            if (isEditMode) {
+                div.addEventListener('dragstart', handleDragStart);
+                div.addEventListener('dragend', handleDragEnd);
+            }
+
+            // Add edit/delete listeners if in edit mode
+             if (isEditMode) {
+                const editBtn = div.querySelector('.edit-task-btn');
+                const deleteBtn = div.querySelector('.delete-task-btn');
+                if(editBtn) editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent card drag
+                    openTaskModal(task);
+                });
+                if(deleteBtn) deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent card drag
+                    if (confirm(`Are you sure you want to delete task: "${task.title}"?`)) {
+                        deleteTask(task.id);
+                    }
+                 });
+             }
+
+            return div;
+        };
+
+        const renderTasks = () => {
+            // Clear existing tasks from columns
+            document.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
+            // Populate columns
+            tasks.forEach(task => {
+                const columnTasks = document.getElementById(`${task.status}-tasks`);
+                if (columnTasks) {
+                    const taskElement = createTaskElement(task);
+                    columnTasks.appendChild(taskElement);
+                }
+            });
+            // Update counts
+            document.getElementById('todo-count').textContent = tasks.filter(t => t.status === 'todo').length;
+            document.getElementById('inprogress-count').textContent = tasks.filter(t => t.status === 'inprogress').length;
+            document.getElementById('done-count').textContent = tasks.filter(t => t.status === 'done').length;
+            // Re-render calendar if visible
+            if (currentView === 'calendar') {
+                renderCalendar();
+            }
+        };
+
+        // --- Calendar Rendering ---
+        const renderCalendar = () => {
+            calendarGrid.innerHTML = ''; // Clear previous grid
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth(); // 0-indexed
+
+            calendarMonthYear.textContent = currentCalendarDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            // Get tasks grouped by their UTC date (YYYY-MM-DD)
+            const tasksByDate = tasks.reduce((acc, task) => {
+                if (task.deadline) {
+                    const dateKey = task.deadline; // Assumes deadline is already YYYY-MM-DD
+                    if (!acc[dateKey]) acc[dateKey] = [];
+                    acc[dateKey].push(task);
+                }
+                return acc;
+            }, {});
+
+            // *** MODIFIED Calendar Calculation ***
+            const firstDayOfMonth = new Date(Date.UTC(year, month, 1)).getUTCDay(); // 0 = Sunday
+            const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+            // Get start of today in UTC for comparison
+            const todayUtc = new Date();
+            todayUtc.setUTCHours(0, 0, 0, 0);
+            const todayUtcTimestamp = todayUtc.getTime();
+
+            // Create empty cells for days before the month starts
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                calendarGrid.innerHTML += `<div class="border border-gray-700/50 h-24 bg-gray-800/30"></div>`;
+            }
+
+            // Create cells for each day of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentUtcDate = new Date(Date.UTC(year, month, day));
+                const dateKey = currentUtcDate.toISOString().split('T')[0]; // Get YYYY-MM-DD from UTC date
+                const tasksForDay = tasksByDate[dateKey] || [];
+                const isToday = currentUtcDate.getTime() === todayUtcTimestamp;
+
+                let dayHtml = `
+                    <div class="calendar-day border border-gray-700/50 h-24 p-1.5 flex flex-col relative ${isToday ? 'bg-gray-700/40' : 'bg-gray-800/70'}">
+                        <span class="font-medium text-xs ${isToday ? 'text-accent font-bold' : 'text-gray-300'}">${day}</span>
+                        <div class="mt-1 space-y-0.5 overflow-y-auto max-h-[70px]">`; // Simple scroll container
+
+                tasksForDay.forEach(task => {
+                    dayHtml += `<div class="text-[10px] leading-tight p-0.5 rounded bg-accent-20 text-accent-dark truncate" title="${task.title}">${task.title}</div>`;
+                });
+                dayHtml += `</div></div>`;
+                calendarGrid.innerHTML += dayHtml;
+            }
+        };
+
+        // --- Modal Handling ---
+        const openTaskModal = (task = null) => {
+            taskForm.reset(); // Clear previous data
+            if (task) {
+                modalTitle.textContent = 'Edit Task';
+                taskIdInput.value = task.id;
+                taskTitleInput.value = task.title;
+                taskDescriptionInput.value = task.description || '';
+                taskPriorityInput.value = task.priority;
+                taskDeadlineInput.value = task.deadline || '';
+            } else {
+                modalTitle.textContent = 'Add New Task';
+                taskIdInput.value = ''; // Ensure ID is empty for new tasks
+            }
+            taskModal.classList.add('active');
+            taskTitleInput.focus(); // Focus the title input
+        };
+        const closeTaskModal = () => taskModal.classList.remove('active');
+
+        const openSettingsModal = () => {
+            renderSettingsOptions(); // Ensure options are up-to-date
+            settingsModal.classList.add('active');
+        };
+        const closeSettingsModal = () => settingsModal.classList.remove('active');
+
+        // --- Task Management ---
+        const saveTask = (event) => {
+            event.preventDefault();
+            const id = taskIdInput.value;
+            const taskData = {
+                title: taskTitleInput.value.trim(),
+                description: taskDescriptionInput.value.trim(),
+                priority: taskPriorityInput.value,
+                // Ensure deadline is stored as YYYY-MM-DD or null
+                deadline: taskDeadlineInput.value || null,
+            };
+
+            if (!taskData.title) {
+                alert("Task title cannot be empty.");
+                return;
+            }
+
+            if (id) {
+                // Update existing task
+                tasks = tasks.map(task => task.id === id ? { ...task, ...taskData } : task);
+            } else {
+                // Add new task
+                const newTask = {
+                    ...taskData,
+                    id: generateId(),
+                    status: 'todo', // New tasks start in 'todo'
+                };
+                tasks.push(newTask);
+            }
+            saveTasks();
+            renderTasks();
+            closeTaskModal();
+        };
+
+        const deleteTask = (id) => {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasks();
+        };
+
+        const updateTaskStatus = (id, newStatus) => {
+            const taskIndex = tasks.findIndex(task => task.id === id);
+            if (taskIndex > -1) {
+                const oldStatus = tasks[taskIndex].status;
+                tasks[taskIndex].status = newStatus;
+
+                // Trigger confetti if moved to 'Done' from another column
+                if (newStatus === 'done' && oldStatus !== 'done') {
+                    triggerConfetti();
+                }
+
+                saveTasks();
+                renderTasks(); // Re-render to reflect the change immediately
+            }
+        };
+
+        // --- Drag and Drop ---
+        const handleDragStart = (event) => {
+            draggedTaskId = event.target.id;
+            event.dataTransfer.setData('text/plain', draggedTaskId);
+            setTimeout(() => event.target.classList.add('dragging'), 0); // Add class after delay
+        };
+        const handleDragEnd = (event) => {
+            event.target.classList.remove('dragging');
+            draggedTaskId = null;
+            // Clean up drag-over styles
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        };
+
+        const handleDragOver = (event) => {
+            event.preventDefault(); // Allow dropping
+            const column = event.target.closest('.kanban-column');
+            if (column && isEditMode) {
+                 // Remove from others, add to current
+                document.querySelectorAll('.kanban-column').forEach(el => el.classList.remove('drag-over'));
+                column.classList.add('drag-over');
+                event.dataTransfer.dropEffect = 'move';
+            } else {
+                 event.dataTransfer.dropEffect = 'none';
+            }
+        };
+
+        const handleDrop = (event) => {
+            event.preventDefault();
+            if (!isEditMode || !draggedTaskId) return;
+
+            const column = event.target.closest('.kanban-column');
+            if (column) {
+                const newStatus = column.dataset.status;
+                const droppedTaskElement = document.getElementById(draggedTaskId);
+
+                if (droppedTaskElement) {
+                    // Update task data and re-render
+                    updateTaskStatus(draggedTaskId, newStatus);
+                }
+            }
+            // Clean up drag-over styles handled in dragend
+        };
+
+        // --- View Toggling ---
+        const toggleView = () => {
+            if (currentView === 'kanban') {
+                currentView = 'calendar';
+                kanbanBoard.classList.add('hidden');
+                calendarView.classList.remove('hidden');
+                toggleViewText.textContent = 'Board';
+                renderCalendar(); // Render calendar when switching
+            } else {
+                currentView = 'kanban';
+                kanbanBoard.classList.remove('hidden');
+                calendarView.classList.add('hidden');
+                toggleViewText.textContent = 'Calendar';
+                renderTasks(); // Re-render tasks in case edit mode changed
+            }
+        };
+        const toggleEditMode = () => {
+            isEditMode = !isEditMode;
+            toggleEditText.textContent = isEditMode ? 'View Mode' : 'Edit Mode';
+            toggleEditBtn.classList.toggle('border-accent', isEditMode);
+            toggleEditBtn.classList.toggle('text-accent', isEditMode);
+            toggleEditBtn.classList.toggle('border-dashed', isEditMode);
+            // Re-render tasks to add/remove edit buttons and draggable attribute
+            renderTasks();
+        };
+
+        // --- Confetti ---
+        let confettiParticles = [];
+        const confettiColors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+        const triggerConfetti = () => {
+            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId); // Stop previous animation if any
+            confettiParticles = [];
+            const W = window.innerWidth;
+            const H = window.innerHeight;
+            confettiCanvas.width = W;
+            confettiCanvas.height = H;
+            const mp = 150; // Max particles
+
+            for (let i = 0; i < mp; i++) {
+                confettiParticles.push({
+                    x: Math.random() * W,
+                    y: Math.random() * H - H, // Start above screen
+                    r: Math.random() * 4 + 6, // Radius
+                    d: Math.random() * mp + 10, // Density (speed factor)
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    tilt: Math.floor(Math.random() * 10) - 10,
+                    tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+                    tiltAngle: 0
+                });
+            }
+            animateConfetti();
+            // Stop confetti after a few seconds
+            setTimeout(() => {
+                 if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+                 confettiAnimationId = null;
+                 ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height); // Clear canvas
+            }, 4000);
+        };
+
+        const animateConfetti = () => {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            confettiParticles.forEach((p, i) => {
+                p.tiltAngle += p.tiltAngleIncremental;
+                p.y += (Math.cos(p.tiltAngle) + p.d / 2 + p.r / 2) / 2; // Fall speed
+                p.x += Math.sin(p.tiltAngle); // Horizontal sway
+                p.tilt = Math.sin(p.tiltAngle - i / 3) * 15; // Flutter
+
+                // Reset particle if it goes off screen
+                if (p.x > confettiCanvas.width + 20 || p.x < -20 || p.y > confettiCanvas.height + 20) {
+                    p.x = Math.random() * confettiCanvas.width;
+                    p.y = -20; // Reset above screen
+                    p.tilt = Math.floor(Math.random() * 10) - 10;
+                }
+
+                // Draw particle (simple rectangle for performance)
+                 ctx.fillStyle = p.color;
+                 ctx.save();
+                 ctx.translate(p.x + p.tilt + p.r / 2, p.y + p.r / 2); // Move to center of particle
+                 ctx.rotate(p.tiltAngle * Math.PI / 180); // Rotate
+                 ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r); // Draw square
+                 ctx.restore();
+            });
+            confettiAnimationId = requestAnimationFrame(animateConfetti);
+        };
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTasks();
+            loadSettings(); // Load and apply settings
+            renderTasks(); // Initial render
+
+            // Modal Buttons
+            document.getElementById('add-task-btn').addEventListener('click', () => openTaskModal());
+            document.getElementById('cancel-task-btn').addEventListener('click', closeTaskModal);
+            document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
+            document.getElementById('cancel-settings-btn').addEventListener('click', closeSettingsModal);
+            document.getElementById('apply-settings-btn').addEventListener('click', () => {
+                 // Update settings from inputs before saving
+                 settings.backgroundImage = bgUrlInput.value;
+                 settings.accentColor = colorPickerInput.value;
+                 applySettings(); // Apply visually
+                 saveSettings(); // Save to local storage
+                 closeSettingsModal();
+            });
+
+            // Form Submission
+            taskForm.addEventListener('submit', saveTask);
+
+            // View/Edit Toggles
+            toggleViewBtn.addEventListener('click', toggleView);
+            toggleEditBtn.addEventListener('click', toggleEditMode);
+
+            // Calendar Navigation
+            document.getElementById('prev-month-btn').addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+                renderCalendar();
+            });
+            document.getElementById('next-month-btn').addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+                renderCalendar();
+            });
+
+            // Drag and Drop listeners for columns
+            document.querySelectorAll('.kanban-column').forEach(column => {
+                column.addEventListener('dragover', handleDragOver);
+                column.addEventListener('drop', handleDrop);
+                 // Add listener to remove drag-over style when not dragging over anymore
+                column.addEventListener('dragleave', (e) => {
+                    // Only remove if leaving the column itself, not its children
+                    if (e.target === column) {
+                       column.classList.remove('drag-over');
+                    }
+                });
+            });
+
+            // Settings input changes
+            bgUrlInput.addEventListener('change', () => {
+                settings.backgroundImage = bgUrlInput.value;
+                applySettings(); // Preview
+            });
+            colorPickerInput.addEventListener('input', () => { // Use 'input' for live preview
+                settings.accentColor = colorPickerInput.value;
+                applySettings(); // Preview
+            });
+        });
+
+        // Handle window resize for confetti canvas
+        window.addEventListener('resize', () => {
+            if (confettiAnimationId) { // Only resize if confetti is active
+                 confettiCanvas.width = window.innerWidth;
+                 confettiCanvas.height = window.innerHeight;
+            }
+        });
+
+    </script>
+</body>
+</html>
