@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Zafreen Only! 😡</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- Base Styles --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e; /* Dark fallback */
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* --- Envelope Styles --- */
+        #envelope {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f0e6d2; /* Creamy envelope color */
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.5s ease-out 0.5s; /* Fade out after opening */
+        }
+        .envelope-body {
+            width: 300px;
+            height: 200px;
+            background-color: #fff8e7; /* Lighter envelope body */
+            position: relative;
+            border: 1px solid #d3c0a5;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .envelope-flap {
+            width: 0;
+            height: 0;
+            border-left: 150px solid transparent;
+            border-right: 150px solid transparent;
+            border-top: 100px solid #f0e6d2; /* Flap color matches outer */
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: top center;
+            transition: transform 0.5s ease-in-out, border-top-color 0.5s ease-in-out;
+            border-top-color: #e6d8bf; /* Slightly darker flap edge */
+        }
+        .envelope-text {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            color: #a16207; /* Brown text */
+            text-shadow: 1px 1px #fff8e7;
+        }
+
+        /* Envelope Opening Animation */
+        #envelope.opened .envelope-flap {
+            transform: rotateX(180deg);
+            border-top-color: #f0e6d2; /* Match body when open */
+            transition-delay: 0.1s; /* Start flap animation slightly after click */
+        }
+        #envelope.opened {
+            opacity: 0;
+            pointer-events: none; /* Disable click after opening */
+            transition-delay: 0.6s; /* Start fading envelope after flap opens */
+        }
+
+        /* --- Confetti Canvas --- */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 90; /* Below envelope initially, above card */
+            display: none; /* Hidden until triggered */
+        }
+        #confetti-canvas.active {
+            display: block;
+        }
+
+        /* --- Card Styles --- */
+        #card-content {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #4c1d95; /* Dark Purple */
+            z-index: 80; /* Below confetti */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out 0.8s; /* Fade in after envelope fades */
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden; /* Hide overflowing Steves */
+        }
+        #card-content.visible {
+            opacity: 1;
+        }
+
+        /* Minecraft Steve Background */
+        #card-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 300%; /* Make larger for seamless animation */
+            height: 300%;
+            /* Inline SVG for Steve Head - Simple Pixelated */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" width="32" height="32" style="image-rendering: pixelated;"><rect x="0" y="0" width="8" height="8" fill="%23644838"/><rect x="1" y="1" width="6" height="6" fill="%23CF8A61"/><rect x="2" y="3" width="1" height="1" fill="white"/><rect x="5" y="3" width="1" height="1" fill="white"/><rect x="3" y="5" width="2" height="1" fill="%23644838"/><rect x="1" y="6" width="6" height="1" fill="%234876A4"/></svg>');
+            background-size: 40px 40px; /* Size of each Steve head */
+            opacity: 0.08; /* Low opacity */
+            z-index: -1; /* Behind card content */
+            animation: moveBackground 60s linear infinite;
+        }
+
+        @keyframes moveBackground {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100px, -100px); } /* Adjust values for speed/direction */
+        }
+
+        /* --- Cake Styles --- */
+        .cake {
+            width: 150px;
+            height: 100px;
+            background-color: #f9a8d4; /* Pink frosting */
+            border-radius: 5px 5px 0 0;
+            position: relative;
+            border: 3px solid #581c87; /* Darker purple outline */
+            margin-bottom: 30px; /* Space below cake */
+        }
+        .cake::before { /* Bottom layer */
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: -15px;
+            width: 180px;
+            height: 20px;
+            background-color: #ec4899; /* Hot pink */
+            border-radius: 0 0 5px 5px;
+            border: 3px solid #581c87;
+            border-top: none;
+        }
+        .candle {
+            width: 10px;
+            height: 35px;
+            background-color: #fef3c7; /* yellow-100 */
+            position: absolute;
+            bottom: 100px; /* On top of the cake */
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 3px 3px 0 0;
+            border: 2px solid #a16207; /* Brown outline */
+        }
+        .flame {
+            width: 8px;
+            height: 16px;
+            background-color: #fbbf24; /* amber-400 */
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; /* Flame shape */
+            position: absolute;
+            top: -18px; /* Above the candle */
+            left: 50%;
+            transform: translateX(-50%);
+            animation: flicker 0.5s ease-in-out infinite alternate;
+            box-shadow: 0 0 5px #f59e0b; /* amber-500 glow */
+        }
+
+        @keyframes flicker {
+            0% { transform: translateX(-50%) scale(1, 1); opacity: 1; }
+            50% { transform: translateX(-45%) scale(0.95, 1.05); opacity: 0.8; }
+            100% { transform: translateX(-55%) scale(1.05, 0.95); opacity: 1; }
+        }
+
+        /* --- Text Styles --- */
+        .message {
+            color: #f5d0fe; /* purple-100 */
+            font-size: 1rem; /* Adjust as needed */
+            line-height: 1.8;
+            text-shadow: 1px 1px #3b0764; /* Darker purple shadow */
+            max-width: 80%;
+            margin-bottom: 20px;
+        }
+        .signature {
+            color: #e9d5ff; /* purple-200 */
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="envelope">
+        <div class="envelope-body">
+            <div class="envelope-flap"></div>
+        </div>
+        <div class="envelope-text">hmm.. what could this be?</div>
+    </div>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <div id="card-content">
+        <div class="cake">
+            <div class="candle">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="message text-center">
+            Hepi Birthday Zafreen!
+            <br><br>
+            Selamat sweet 16, semoga kekal bahagia, kekal sihat, dan most importantly kekal being your amazing self 💖 I like u pls dont die 
+            <br><br>
+            P.S. enjoy your birthday gifts 🫣
+        </div>
+        <div class="signature">
+            --From 🦍
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const envelope = document.getElementById('envelope');
+        const cardContent = document.getElementById('card-content');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const ctx = confettiCanvas.getContext('2d');
+
+        // --- Confetti Logic ---
+        let confettiParticles = [];
+        let confettiAnimationId = null;
+        const confettiColors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+
+        const triggerConfetti = () => {
+            confettiCanvas.classList.add('active'); // Show canvas
+            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+            confettiParticles = [];
+            const W = window.innerWidth, H = window.innerHeight;
+            confettiCanvas.width = W; confettiCanvas.height = H;
+            const mp = 200; // More confetti!
+
+            for (let i = 0; i < mp; i++) {
+                confettiParticles.push({
+                    x: Math.random() * W,
+                    y: Math.random() * H - H,
+                    r: Math.random() * 5 + 5, // radius
+                    d: Math.random() * mp + 10, // density
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    tilt: Math.floor(Math.random() * 10) - 10,
+                    tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+                    tiltAngle: 0
+                });
+            }
+            animateConfetti();
+            // Stop confetti after a few seconds
+            setTimeout(() => {
+                 if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+                 confettiAnimationId = null;
+                 ctx.clearRect(0, 0, W, H);
+                 confettiCanvas.classList.remove('active'); // Hide canvas
+            }, 5000); // Let it run for 5 seconds
+        };
+
+        const animateConfetti = () => {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            confettiParticles.forEach((p, i) => {
+                p.tiltAngle += p.tiltAngleIncremental;
+                p.y += (Math.cos(p.tiltAngle) + p.d / 2 + p.r / 2) / 2;
+                p.x += Math.sin(p.tiltAngle);
+                p.tilt = Math.sin(p.tiltAngle - i / 3) * 15;
+
+                if (p.x > confettiCanvas.width + 20 || p.x < -20 || p.y > confettiCanvas.height + 20) {
+                    // Reset particle if it goes off screen
+                     if (i % 5 > 0 || i % 2 === 0) // Gradually reduce respawns
+                     {
+                        p.x = Math.random() * confettiCanvas.width;
+                        p.y = -20;
+                        p.tilt = Math.floor(Math.random() * 10) - 10;
+                    }
+                }
+
+                // Draw particle (rectangle)
+                 ctx.fillStyle = p.color;
+                 ctx.save();
+                 ctx.translate(p.x + p.tilt + p.r / 2, p.y + p.r / 2);
+                 ctx.rotate(p.tiltAngle * Math.PI / 180);
+                 ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r);
+                 ctx.restore();
+            });
+            confettiAnimationId = requestAnimationFrame(animateConfetti);
+        };
+
+        // --- Event Listener ---
+        envelope.addEventListener('click', () => {
+            // 1. Trigger Confetti
+            triggerConfetti();
+
+            // 2. Add 'opened' class to start envelope animation
+            envelope.classList.add('opened');
+
+            // 3. Reveal the card content after envelope animation starts/finishes
+            // The delay is handled by the CSS transition-delay on #card-content
+            cardContent.classList.add('visible');
+
+        }, { once: true }); // Only allow clicking the envelope once
+
+        // Handle window resize for confetti canvas
+        window.addEventListener('resize', () => {
+            if (confettiAnimationId) {
+                 confettiCanvas.width = window.innerWidth;
+                 confettiCanvas.height = window.innerHeight;
+            }
+        });
+
+    </script>
+</body>
+</html>
